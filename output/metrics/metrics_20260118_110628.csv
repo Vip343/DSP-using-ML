@@ -1,0 +1,13 @@
+filename,method,SNR_input_dB,SNR_output_dB,SNR_improvement_dB,SDR_dB,SI-SDR_dB,PESQ,STOI
+clean_test.wav,wiener,-3.5478,-3.1796,0.3682,-26.2417,-44.0654,1.8227,0.0933
+clean_test.wav,spectral_subtraction,-3.5478,-3.2090,0.3388,-26.2722,-43.9272,1.8920,0.1107
+clean_test.wav,lowpass,-3.5478,-3.4134,0.1344,-26.6417,-42.6363,1.2714,0.2016
+clean_test.wav,bandpass,-3.5478,-3.0273,0.5205,-26.7492,-42.5213,1.3136,0.2009
+clean_test.wav,noisereduce,-3.5478,-1.1437,2.4040,-24.3849,-43.2453,1.6711,0.1677
+clean_test.wav,speechbrain,-3.5478,-2.8703,0.6775,-26.7285,-45.4684,2.0719,0.1195
+clean_test.wav,deepfilternet,-3.5478,-2.9723,0.5754,-27.0881,-45.4917,2.3846,0.0948
+clean_test.wav,deepfilternet2,-3.5478,-3.0239,0.5238,-27.4167,-46.3810,3.7113,0.0718
+clean_test.wav,demucs,-3.5478,-3.1652,0.3826,-26.8677,-43.1028,1.4923,0.1597
+sample_clean.csv,lowpass,10.0000,10.0520,0.0520,10.1535,5.8512,,
+sample_clean.csv,moving_average,10.0000,17.0241,7.0241,17.1538,12.7869,,
+sample_clean.csv,median,10.0000,15.4896,5.4896,15.6363,11.2734,,
