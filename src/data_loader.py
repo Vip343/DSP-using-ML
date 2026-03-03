@@ -38,6 +38,44 @@ class SensorData:
     columns: List[str]
 
 
+def sensor_to_audio(sensor_data: 'SensorData', column_idx: int = 0) -> AudioData:
+    """Convert a single column of sensor data into an AudioData wrapper for AI processing."""
+    if sensor_data.values.ndim > 1:
+        signal = sensor_data.values[:, column_idx].astype(np.float32)
+    else:
+        signal = sensor_data.values.astype(np.float32)
+
+    return AudioData(
+        signal=signal,
+        sample_rate=max(int(sensor_data.sample_rate), 1),
+        filename=sensor_data.filename,
+        duration=sensor_data.duration,
+        channels=1,
+    )
+
+
+def audio_to_sensor(audio_data: AudioData, original_sensor: 'SensorData',
+                    column_idx: int = 0) -> 'SensorData':
+    """Convert AI-processed AudioData back to SensorData, preserving the original structure."""
+    values = original_sensor.values.copy()
+    filtered = audio_data.signal
+    min_len = min(len(filtered), values.shape[0] if values.ndim > 1 else len(values))
+
+    if values.ndim > 1:
+        values[:min_len, column_idx] = filtered[:min_len]
+    else:
+        values[:min_len] = filtered[:min_len]
+
+    return SensorData(
+        time=original_sensor.time.copy(),
+        values=values,
+        filename=original_sensor.filename,
+        sample_rate=original_sensor.sample_rate,
+        duration=original_sensor.duration,
+        columns=original_sensor.columns,
+    )
+
+
 class AudioLoader:
     """Loader for audio files with preprocessing capabilities."""
     

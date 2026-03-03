@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import warnings
 
 from .config import Config
-from .data_loader import AudioData
+from .data_loader import AudioData, SensorData, sensor_to_audio, audio_to_sensor
 
 
 @dataclass
@@ -863,6 +863,58 @@ class AIDenoiser:
         
         return results
     
+    def denoise_sensor(self, sensor_data: SensorData, method: str = 'noisereduce',
+                       column_idx: int = 0) -> Tuple[SensorData, AIDenoiseResult]:
+        """
+        Apply an AI denoiser to a single column of sensor data.
+
+        The sensor signal is wrapped as AudioData, processed by the chosen
+        AI method, and the result is mapped back to SensorData.
+
+        Args:
+            sensor_data: Input sensor data
+            method: AI denoising method name
+            column_idx: Which value column to denoise
+
+        Returns:
+            Tuple of (denoised SensorData, AIDenoiseResult)
+        """
+        audio_wrapper = sensor_to_audio(sensor_data, column_idx)
+        denoised_audio, ai_result = self.denoise(audio_wrapper, method)
+        denoised_sensor = audio_to_sensor(denoised_audio, sensor_data, column_idx)
+        return denoised_sensor, ai_result
+
+    def denoise_all_methods_sensor(self, sensor_data: SensorData,
+                                   column_idx: int = 0) -> dict:
+        """
+        Apply all enabled AI denoisers to sensor data.
+
+        Args:
+            sensor_data: Input sensor data
+            column_idx: Which value column to denoise
+
+        Returns:
+            Dictionary mapping method name to (SensorData, AIDenoiseResult)
+        """
+        results = {}
+        method_flags = [
+            ('noisereduce', self.config.use_noisereduce),
+            ('speechbrain', self.config.use_speechbrain),
+            ('deepfilternet', self.config.use_deepfilternet),
+            ('deepfilternet2', self.config.use_deepfilternet2),
+            ('deepfilternet2_hf', self.config.use_deepfilternet_hf),
+            ('demucs', self.config.use_demucs),
+            ('rnnoise', self.config.use_rnnoise),
+        ]
+        for method, enabled in method_flags:
+            if not enabled:
+                continue
+            try:
+                results[method] = self.denoise_sensor(sensor_data, method, column_idx)
+            except Exception as e:
+                warnings.warn(f"AI method '{method}' failed on sensor data: {e}")
+        return results
+
     def is_available(self, method: str) -> bool:
         """Check if a specific AI method is available."""
         if method == 'deepfilternet':

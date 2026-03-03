@@ -231,16 +231,19 @@ class DenoisingPipeline:
                              clean_data: Optional[SensorData],
                              noisy_data: SensorData,
                              dsp_methods: List[str] = None,
+                             ai_methods: List[str] = None,
                              save_outputs: bool = True) -> Dict:
         """
-        Process a single sensor file with DSP filters.
+        Process a single sensor file with DSP filters and AI-based denoisers.
         
-        Note: AI methods are designed for audio and don't apply to sensor data.
+        AI methods treat each sensor column as a 1-D signal, wrap it as
+        AudioData, run the denoiser, and convert the result back to SensorData.
         
         Args:
             clean_data: Clean reference (for metrics, can be None)
             noisy_data: Noisy sensor data
             dsp_methods: List of DSP methods to apply
+            ai_methods: List of AI methods to apply
             save_outputs: Whether to save filtered data files
             
         Returns:
@@ -248,15 +251,20 @@ class DenoisingPipeline:
         """
         if dsp_methods is None:
             dsp_methods = ['lowpass', 'highpass', 'moving_average', 'median']
+        if ai_methods is None:
+            ai_methods = ['noisereduce', 'speechbrain', 'deepfilternet', 'deepfilternet2',
+                          'deepfilternet2_hf', 'demucs']
         
         results = {
             'filtered_data': {},
             'metrics': [],
-            'dsp_results': {}
+            'dsp_results': {},
+            'ai_results': {}
         }
         
         base_name = Path(noisy_data.filename).stem
         
+        # --- DSP filters ---
         print(f"\n  Applying DSP filters to sensor data...")
         for method in tqdm(dsp_methods, desc="  DSP"):
             try:
@@ -266,7 +274,6 @@ class DenoisingPipeline:
                 results['filtered_data'][method] = filtered_data
                 results['dsp_results'][method] = filter_result
                 
-                # Calculate metrics if clean reference available
                 if clean_data is not None:
                     metrics_result = self.metrics.calculate_sensor_metrics(
                         clean_data, noisy_data, filtered_data, method
@@ -274,13 +281,49 @@ class DenoisingPipeline:
                     results['metrics'].append(metrics_result)
                     self.all_results.append(metrics_result)
                 
-                # Save filtered data
                 if save_outputs:
                     output_path = self.config.output_filtered_dir / f"{base_name}_{method}.csv"
                     self.sensor_loader.save(filtered_data, output_path)
                     
             except Exception as e:
                 warnings.warn(f"DSP method '{method}' failed for sensor data: {e}")
+        
+        # --- AI denoisers ---
+        ai_to_run = [m for m in ai_methods if (
+            (m == 'noisereduce' and self.config.use_noisereduce) or
+            (m == 'speechbrain' and self.config.use_speechbrain) or
+            (m == 'rnnoise' and self.config.use_rnnoise) or
+            (m == 'deepfilternet' and self.config.use_deepfilternet) or
+            (m == 'deepfilternet2' and self.config.use_deepfilternet2) or
+            (m == 'deepfilternet2_hf' and self.config.use_deepfilternet_hf) or
+            (m == 'demucs' and self.config.use_demucs)
+        )]
+        
+        if ai_to_run:
+            print(f"\n  Applying AI denoisers to sensor data: {ai_to_run}")
+        
+        for method in ai_to_run:
+            try:
+                print(f"    Processing sensor with {method}...")
+                filtered_data, ai_result = self.ai_denoiser.denoise_sensor(
+                    noisy_data, method=method
+                )
+                results['filtered_data'][method] = filtered_data
+                results['ai_results'][method] = ai_result
+                
+                if clean_data is not None:
+                    metrics_result = self.metrics.calculate_sensor_metrics(
+                        clean_data, noisy_data, filtered_data, method
+                    )
+                    results['metrics'].append(metrics_result)
+                    self.all_results.append(metrics_result)
+                
+                if save_outputs:
+                    output_path = self.config.output_filtered_dir / f"{base_name}_{method}.csv"
+                    self.sensor_loader.save(filtered_data, output_path)
+                    
+            except Exception as e:
+                warnings.warn(f"AI method '{method}' failed for sensor data: {e}")
         
         return results
     
